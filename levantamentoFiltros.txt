@@ -1,0 +1,27 @@
+-> PIL
+  > Sharpen
+  > Edge
+
+> Scipy
+  > ndimage.maximum_filter,
+  > ndimage.percentile_filter
+  > ndimage.median_filter
+  > ndimage.gaussian_filter
+
+> skimage
+  > filters.rank.median
+  > restoration.denoise_tv_chambolle
+  > filters.gaussian_filter
+
+First Attemp:
+  ndimage.percentile_filter(f2, 1, 5) -> im.filter(ImageFilter.EDGE_ENHANCE_MORE)
+
+Second Attemp:
+  Edge -> per -> tv
+
+Pipeline:
+  -> Crop image
+  -> Edge
+  -> Per
+  -> Tv
+  -> Hog
