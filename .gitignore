@@ -1,1 +1,5 @@
+*~
 *.csv
+target/
+testImageProcessing/
+trainingImageProcessing/
