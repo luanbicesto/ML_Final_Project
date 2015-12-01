@@ -4,9 +4,10 @@ import csv
 import numpy as np
 import math
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 
-trainingDir = './trainingImageProcessing/final/'
-testDir = './testImageProcessing/final/'
+trainingBaseDir = './trainingImageProcessing/'
+testBaseDir = './testImageProcessing/'
 targetBaseDir = './target/'
 idGalaxySize = 6
 
@@ -30,33 +31,91 @@ def buildInputMatrix(fromDir):
   return (sortedInputData, galaxyIds)
 
 def classifierClass1(training, test):
-  classifierClass1Detail(training, test, 'train_test')
-  classifierClass1Detail(test, training, 'test_train')
+  training = training + 'class_1/final/'
+  test = test + 'class_1/final/'
 
-def classifierClass1Detail(trainingDir, testDir, name):
-  baseDirConfusionMatrix = './confusionMatrix/class_1/'
-  numberTrees = 240
+  classifierRandomForests(training, test, 'train_test', 3, './confusionMatrix/class_1/', 240, 'Class1.csv')
+  classifierRandomForests(test, training, 'test_train', 3, './confusionMatrix/class_1/', 240, 'Class1.csv')
+  # classifierClass1Detail(training, test, 'train_test')
+  # classifierClass1Detail(test, training, 'test_train')
 
+def classifierClass2(training, test):
+  training = training + 'class_2/final/'
+  test = test + 'class_2/final/'
+
+  classifierLogR(training, test, 'train_test', './confusionMatrix/class_2/', 'Class2.csv')
+  classifierLogR(test, training, 'test_train', './confusionMatrix/class_2/', 'Class2.csv')
+
+def buildLogRClassifier(normalizedInputData, expectedValues):
+  clf = LogisticRegression()
+  clf = clf.fit(normalizedInputData, expectedValues[:, 0, 1])
+  return clf
+
+def classifierLogR(trainingDir, testDir, name, baseDirConfusionMatrix, targetValuesClass):
+  normalizedInputData, expectedValues, columnMean, columnSd, targetClass = getTrainingData(trainingDir, baseDirConfusionMatrix, targetBaseDir + targetValuesClass)
+
+  clf = buildLogRClassifier(normalizedInputData, expectedValues)
+
+  applyTest(testDir, clf, columnMean, columnSd, targetClass, 2, baseDirConfusionMatrix, name)
+
+def getTrainingData(trainingDir, baseDir, targetDir): #confusionMatrixDir
   sortedInputData, galaxyIds = buildInputMatrix(trainingDir)
   normalizedInputData, columnMean, columnSd = normalizeInputData(sortedInputData)
+  
+  np.savetxt(baseDir + 'mean.csv', columnMean, delimiter=",")
+  np.savetxt(baseDir + 'sd.csv', columnSd, delimiter=",")
 
-  targetClass1 = np.genfromtxt(targetBaseDir + 'Class1.csv', delimiter=',', dtype='int')
-  targetClassSpecific = np.array([targetClass1[np.where(targetClass1[:, 0] == int(x))] for x in galaxyIds])
+  targetClass = np.genfromtxt(targetDir, delimiter=',', dtype='int')
+  targetClassSpecific = np.array([targetClass[np.where(targetClass[:, 0] == int(x))] for x in galaxyIds])
 
-  # build forest 
+  return (normalizedInputData, targetClassSpecific, columnMean, columnSd, targetClass)
+
+def buildRandomForestClassifier(numberTrees, normalizedInputData, expectedValues):
   clf = RandomForestClassifier(n_estimators = numberTrees)
-  clf = clf.fit(sortedInputData, targetClassSpecific[:, 0, 1])
+  clf = clf.fit(normalizedInputData, expectedValues[:, 0, 1])
+  return clf
 
-  # test
+def applyTest(testDir, clf, columnMean, columnSd, targetClass, numberClasses, baseDirConfusionMatrix, name):
   testSortedInputData, testGalaxyIds = buildInputMatrix(testDir)
   rows, cols = testSortedInputData.shape
 
   testNormalizedInputData = normalizeTestInputData(testSortedInputData, columnMean, columnSd, cols)
-  testTargetClassSpecific = np.array([targetClass1[np.where(targetClass1[:, 0] == int(x))] for x in testGalaxyIds])
+  testTargetClassSpecific = np.array([targetClass[np.where(targetClass[:, 0] == int(x))] for x in testGalaxyIds])
 
-  confusionMatrix = buildConfusionMatrix(clf, testNormalizedInputData, testTargetClassSpecific, 3)
+  confusionMatrix = buildConfusionMatrix(clf, testNormalizedInputData, testTargetClassSpecific, numberClasses)
   print(confusionMatrix)
   np.savetxt(baseDirConfusionMatrix + name + ".csv", confusionMatrix, delimiter=",")
+  return
+
+def classifierRandomForests(trainingDir, testDir, name, numberClasses, baseDirConfusionMatrix, numberTrees, targetValuesClass):
+  # baseDirConfusionMatrix = './confusionMatrix/class_1/'
+  # numberTrees = 240
+
+  # sortedInputData, galaxyIds = buildInputMatrix(trainingDir)
+  # normalizedInputData, columnMean, columnSd = normalizeInputData(sortedInputData)
+  # np.savetxt(baseDirConfusionMatrix + 'mean.csv', columnMean, delimiter=",")
+  # np.savetxt(baseDirConfusionMatrix + 'sd.csv', columnSd, delimiter=",")
+  # targetClass1 = np.genfromtxt(targetBaseDir + 'Class1.csv', delimiter=',', dtype='int')
+  # targetClassSpecific = np.array([targetClass1[np.where(targetClass1[:, 0] == int(x))] for x in galaxyIds])
+  normalizedInputData, expectedValues, columnMean, columnSd, targetClass = getTrainingData(trainingDir, baseDirConfusionMatrix, targetBaseDir + targetValuesClass)
+
+  # build forest 
+  # clf = RandomForestClassifier(n_estimators = numberTrees)
+  # clf = clf.fit(sortedInputData, targetClassSpecific[:, 0, 1])
+  clf = buildRandomForestClassifier(numberTrees, normalizedInputData, expectedValues)
+
+  # test
+  # testSortedInputData, testGalaxyIds = buildInputMatrix(testDir)
+  # rows, cols = testSortedInputData.shape
+
+  # testNormalizedInputData = normalizeTestInputData(testSortedInputData, columnMean, columnSd, cols)
+  # testTargetClassSpecific = np.array([targetClass1[np.where(targetClass1[:, 0] == int(x))] for x in testGalaxyIds])
+
+  # confusionMatrix = buildConfusionMatrix(clf, testNormalizedInputData, testTargetClassSpecific, 3)
+  # print(confusionMatrix)
+  # np.savetxt(baseDirConfusionMatrix + name + ".csv", confusionMatrix, delimiter=",")
+
+  applyTest(testDir, clf, columnMean, columnSd, targetClass, numberClasses, baseDirConfusionMatrix, name)
 
 def normalizeTestInputData(inputData, columnMean, columnSd, cols):
   normalizedTestInputData = [[(x - columnMean[j]) / columnSd[j] for x in inputData[:, j]] for j in range(cols)]
@@ -71,9 +130,6 @@ def normalizeInputData(inputData):
   normalizedInputData = [[(x - columnMean[j]) / columnSd[j] for x in inputData[:, j]] for j in range(cols)]
   normalizedInputData = np.array(normalizedInputData)
   normalizedInputData = normalizedInputData.T
-
-  np.savetxt(baseDirZnorm + 'mean.csv', columnMean, delimiter=",")
-  np.savetxt(baseDirZnorm + 'sd.csv', columnSd, delimiter=",")
 
   return (normalizedInputData, columnMean, columnSd) 
 
@@ -93,5 +149,8 @@ def buildConfusionMatrix(classifier, testData, expectedValues, numberOfClasses):
   return (confusionMatrix)
 
 # classifier class 1
-classifierClass1(trainingDir, testDir)
+classifierClass1(trainingBaseDir, testBaseDir)
+
+# classifier class 2
+classifierClass2(trainingBaseDir, testBaseDir)
 
